@@ -1,0 +1,40 @@
+﻿# Paper-trading starter configuration. Review before changing risk limits.
+app:
+  mode: paper
+  timezone: Asia/Kolkata
+  database_path: data/paper_trades.sqlite3
+  log_path: logs/agent.log
+
+risk:
+  starting_capital_inr: 10000
+  planned_risk_per_trade_inr: 200
+  hard_risk_ceiling_per_trade_inr: 300
+  max_open_positions: 1
+  daily_loss_limit_inr: 300
+  allow_leverage: false
+  allow_averaging_down: false
+  gap_slippage_buffer_percent: 1.0
+
+strategy:
+  ema_fast_period: 20
+  ema_slow_period: 50
+  rsi_period: 14
+  volume_average_period: 20
+  breakout_lookback_days: 20
+  minimum_reward_to_risk: 2.0
+
+execution:
+  broker: paper
+  simulated_slippage_percent: 0.10
+  # Cost rates are configurable estimates; verify official schedules before use.
+  brokerage_inr: 0
+  stt_rate: 0
+  exchange_transaction_rate: 0
+  gst_rate: 0
+  stamp_duty_rate: 0
+  dp_charge_inr: 0
+
+market_data:
+  provider: csv
+  csv_directory: data\market
+  max_data_age_minutes: 30
