@@ -62,7 +62,7 @@ def _service():
     if mongo_uri:
         from execution.mongo_paper_trader import MongoPaperTrader
         trader = MongoPaperTrader(mongo_uri,
-            database_name=os.getenv("MONGODB_DATABASE", "paper_trading"),
+            database_name=os.getenv("MONGODB_DATABASE", "paper_trading").strip(),
             starting_capital=cfg["risk"]["starting_capital_inr"], cost_model=cost_model)
     elif db_url:
         from execution.postgres_paper_trader import PostgresPaperTrader
