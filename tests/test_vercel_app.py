@@ -10,6 +10,8 @@ from execution.paper_trader import PaperTrader
 def client(tmp_path, monkeypatch):
     monkeypatch.delenv("VERCEL", raising=False)
     monkeypatch.delenv("APP_ACCESS_TOKEN", raising=False)
+    monkeypatch.delenv("MONGODB_URI", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     database = tmp_path / "web.sqlite3"
     config = {
         "app": {"mode": "paper", "database_path": str(database)},

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from flask import Flask, jsonify, render_template_string, request
+from dotenv import load_dotenv
 
 from agent.config import load_config
 from agent.risk_manager import RiskLimits, check_trade_allowed, size_long_position
@@ -19,6 +20,7 @@ from execution.paper_trader import CostModel, PaperTrader
 
 ROOT = Path(__file__).resolve().parent
 CONFIG_PATH = ROOT / "config.yaml"
+load_dotenv(ROOT / ".env")
 app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -41,7 +43,7 @@ table{width:100%;border-collapse:collapse;background:white}th,td{text-align:left
 <section class="card"><h2>Open paper positions</h2>{% if positions %}<table><tr><th>ID</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Stop</th><th>Target</th><th>Close</th></tr>
 {% for p in positions %}<tr><td>{{ p.id }}</td><td>{{ p.symbol }}</td><td>{{ p.quantity }}</td><td>{{ '%.2f'|format(p.entry_price) }}</td><td>{{ '%.2f'|format(p.stop_loss) }}</td><td>{{ '%.2f'|format(p.target_price) }}</td><td><form method="post" action="/close/{{ p.id }}"><input name="price" type="number" step="0.01" required placeholder="Reference price"><button>Close paper</button></form></td></tr>{% endfor %}</table>{% else %}<p>No open positions.</p>{% endif %}</section>
 <section class="card"><h2>Trade history</h2>{% if trades %}<table><tr><th>ID</th><th>Symbol</th><th>Qty</th><th>Entry</th><th>Exit</th><th>Reason</th><th>Net P/L</th></tr>{% for t in trades %}<tr><td>{{ t.id }}</td><td>{{ t.symbol }}</td><td>{{ t.quantity }}</td><td>{{ '%.2f'|format(t.entry_price) }}</td><td>{{ '%.2f'|format(t.exit_price or 0) if t.exit_price else '' }}</td><td>{{ t.exit_reason or t.status }}</td><td>{{ '%.2f'|format(t.net_pnl or 0) if t.net_pnl is not none else '' }}</td></tr>{% endfor %}</table>{% else %}<p>No trades recorded.</p>{% endif %}</section>
-<p><small>Costs are configurable estimates; current defaults are zero. Deployment database persistence requires DATABASE_URL.</small></p></body></html>"""
+<p><small>Costs are configurable estimates; current defaults are zero. Deployment storage uses MongoDB Atlas when MONGODB_URI is configured.</small></p></body></html>"""
 
 
 def _service():
@@ -56,13 +58,19 @@ def _service():
         dp_charge_inr=execution.get("dp_charge_inr", 0),
     )
     db_url = os.getenv("DATABASE_URL", "").strip()
-    if db_url:
+    mongo_uri = os.getenv("MONGODB_URI", "").strip()
+    if mongo_uri:
+        from execution.mongo_paper_trader import MongoPaperTrader
+        trader = MongoPaperTrader(mongo_uri,
+            database_name=os.getenv("MONGODB_DATABASE", "paper_trading"),
+            starting_capital=cfg["risk"]["starting_capital_inr"], cost_model=cost_model)
+    elif db_url:
         from execution.postgres_paper_trader import PostgresPaperTrader
         trader = PostgresPaperTrader(db_url, starting_capital=cfg["risk"]["starting_capital_inr"],
                                       cost_model=cost_model)
     else:
         if os.getenv("VERCEL"):
-            raise RuntimeError("DATABASE_URL is required for durable Vercel paper-trading storage")
+            raise RuntimeError("MONGODB_URI or DATABASE_URL is required for durable Vercel paper-trading storage")
         db_path = Path(cfg["app"].get("database_path", "data/paper_trades.sqlite3"))
         if not db_path.is_absolute():
             db_path = ROOT / db_path
@@ -111,7 +119,8 @@ def _record(record: Any) -> dict[str, Any]:
 
 def _trade_rows(trader: Any) -> list[dict[str, Any]]:
     if hasattr(trader, "_connect_rows"):
-        return [dict(row) for row in trader._connect_rows()]
+        rows = [dict(row) for row in trader._connect_rows()]
+        return [{("id" if key == "_id" else key): value for key, value in row.items()} for row in rows]
     with trader._connect() as db:
         rows = db.execute("SELECT * FROM trades ORDER BY entry_time DESC, id DESC LIMIT 500").fetchall()
     return [dict(row) for row in rows]

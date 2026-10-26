@@ -17,17 +17,18 @@ Open `http://127.0.0.1:5000`. Run the checks with:
 
 ## Deploy to Vercel
 
-The app uses Flask as a Python Function. Vercel Functions have temporary local filesystems, so configure a managed Postgres database before deployment.
+The app uses Flask as a Python Function. Vercel Functions have temporary local filesystems, so configure MongoDB Atlas before deployment.
 
 1. Push this project to a private GitHub repository.
 2. In Vercel, import the repository and use the included `vercel.json` and `requirements.txt`.
-3. Create a Neon Postgres database (or another Postgres service reachable by Vercel).
+3. Configure the Atlas cluster, database user, and network access for the deployment.
 4. Add these Vercel environment variables for **Production, Preview, and Development** as appropriate:
-   - `DATABASE_URL`: the provider's pooled Postgres connection string, with SSL enabled.
+   - `MONGODB_URI`: the Atlas SRV connection URI for the `paper_trading` database user.
+   - `MONGODB_DATABASE`: `paper_trading`.
    - `APP_ACCESS_TOKEN`: a long, random value. All routes require it when deployed; send it as `X-App-Token` for API calls. The simple HTML page does not provide a login form, so access it with `/?token=...` only if necessary; browser URL tokens can appear in history/logs. Prefer the header/API or place the app behind Vercel protection.
 5. Redeploy after setting environment variables.
 
-The health endpoint is `/health`; it is also protected by `APP_ACCESS_TOKEN`. Vercel’s project-level deployment protection can add an additional access layer. Do not put secrets in Git or frontend code. `DATABASE_URL` and `APP_ACCESS_TOKEN` are runtime-only secrets.
+The health endpoint is `/health`; it is also protected by `APP_ACCESS_TOKEN`. Vercel’s project-level deployment protection can add an additional access layer. Do not put secrets in Git or frontend code. `MONGODB_URI` and `APP_ACCESS_TOKEN` are runtime-only secrets.
 
 Vercel is suitable for the interactive dashboard and request/response API. It does not run a permanent background scanner or continuous exit monitor. No automated trading loop is deployed.
 
@@ -41,7 +42,7 @@ Dates use ISO `YYYY-MM-DD`; `completed` must identify finalized daily candles; `
 
 ## Paper trading
 
-The dashboard displays cash, daily P/L, positions, and trade history. Scanning never opens a trade. Paper entries can be made through the API only after strategy, quantity, capital, position-count, and daily-loss checks pass; manual exit actions remain simulated. SQLite is used locally; Postgres is selected automatically when `DATABASE_URL` is set.
+The dashboard displays cash, daily P/L, positions, and trade history. Scanning never opens a trade. Paper entries can be made through the API only after strategy, quantity, capital, position-count, and daily-loss checks pass; manual exit actions remain simulated. SQLite is used locally when no database URI is set; MongoDB Atlas is selected when `MONGODB_URI` is set. PostgreSQL remains supported via `DATABASE_URL`.
 
 Paper fills apply configured slippage against the trader. When a candle touches stop and target, the stop is assumed to execute first; a gap below the stop fills from the candle open, then slippage. Stop-losses do not guarantee maximum loss. Transaction-cost settings in `config.yaml` default to zero and are estimates, not a Zerodha contract-note calculator.
 
