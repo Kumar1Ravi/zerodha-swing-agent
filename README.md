@@ -28,7 +28,7 @@ The app uses Flask as a Python Function. Vercel Functions have temporary local f
    - `APP_ACCESS_TOKEN`: a long, random value. All routes require it when deployed; send it as `X-App-Token` for API calls. The simple HTML page does not provide a login form, so access it with `/?token=...` only if necessary; browser URL tokens can appear in history/logs. Prefer the header/API or place the app behind Vercel protection.
 5. Redeploy after setting environment variables.
 
-The health endpoint is `/health`; it is also protected by `APP_ACCESS_TOKEN`. Vercel’s project-level deployment protection can add an additional access layer. Do not put secrets in Git or frontend code. `MONGODB_URI` and `APP_ACCESS_TOKEN` are runtime-only secrets.
+The dashboard routes rely on Vercel Deployment Protection, which is enabled for this project. JSON API and health endpoints are also protected by `APP_ACCESS_TOKEN`. Do not put secrets in Git or frontend code. `MONGODB_URI` and `APP_ACCESS_TOKEN` are runtime-only secrets.
 
 Vercel is suitable for the interactive dashboard and request/response API. It does not run a permanent background scanner or continuous exit monitor. No automated trading loop is deployed.
 

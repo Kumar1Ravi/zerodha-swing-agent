@@ -59,6 +59,15 @@ def test_deployment_requires_access_token_and_database(monkeypatch):
     assert response.status_code == 401
 
 
+def test_vercel_protection_gates_dashboard_while_json_api_keeps_token(client, monkeypatch):
+    http, _, _ = client
+    service = webapp._service()
+    monkeypatch.setattr(webapp, "_service", lambda: service)
+    monkeypatch.setenv("VERCEL", "1")
+    assert http.get("/").status_code == 200
+    assert http.get("/api/summary").status_code == 401
+
+
 def test_entry_api_rejects_over_risk_quantity(client):
     http, _, _ = client
     response = http.post("/api/paper-trades", json={"symbol": "ABC", "entry_price": 100,

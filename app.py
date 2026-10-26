@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, redirect, render_template_string, request
 from dotenv import load_dotenv
 
 from agent.config import load_config
@@ -99,6 +99,12 @@ def _scan_data_directory(cfg: dict[str, Any]) -> Path:
 
 
 def _authorized() -> bool:
+    # Vercel's deployment protection gates browser access to these HTML routes.
+    # Keep the programmable JSON routes behind the app token as a second check.
+    if os.getenv("VERCEL") and request.endpoint in {
+        "dashboard", "scan", "close_paper_dashboard"
+    }:
+        return True
     expected = os.getenv("APP_ACCESS_TOKEN", "").strip()
     if not expected:
         return not bool(os.getenv("VERCEL"))
@@ -146,6 +152,20 @@ def scan():
         positions=trader.open_positions(), summary=trader.daily_summary(today),
         trades=_trade_rows(trader), signals=signals,
         data_directory=_scan_data_directory(cfg))
+
+
+@app.post("/close/<int:trade_id>")
+def close_paper_dashboard(trade_id: int):
+    try:
+        _, trader, _ = _service()
+        closed = trader.close_position(trade_id,
+            reference_price=float(request.form["price"]),
+            reason=request.form.get("reason", "manual_paper_exit"),
+            timestamp=datetime.now(timezone.utc))
+        logging.info("closed paper trade id=%s net_pnl=%s", closed.id, closed.net_pnl)
+        return redirect("/", code=303)
+    except (KeyError, TypeError, ValueError) as exc:
+        return jsonify({"error": str(exc)}), 400
 
 
 @app.get("/api/summary")
